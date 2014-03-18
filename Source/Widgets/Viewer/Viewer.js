@@ -15,6 +15,7 @@ define([
         '../Animation/AnimationViewModel',
         '../BaseLayerPicker/BaseLayerPicker',
         '../BaseLayerPicker/createDefaultBaseLayers',
+        '../CameraControl/CameraControl',
         '../CesiumWidget/CesiumWidget',
         '../ClockViewModel',
         '../FullscreenButton/FullscreenButton',
@@ -43,6 +44,7 @@ define([
         AnimationViewModel,
         BaseLayerPicker,
         createDefaultBaseLayers,
+        CameraControl,
         CesiumWidget,
         ClockViewModel,
         FullscreenButton,
@@ -107,6 +109,7 @@ define([
      * @param {Object} [options] Configuration options for the widget.
      * @param {Boolean} [options.animation=true] If set to false, the Animation widget will not be created.
      * @param {Boolean} [options.baseLayerPicker=true] If set to false, the BaseLayerPicker widget will not be created.
+     * @param {Boolean} [options.cameraControl=true] If set to false, the CameraControl widget will not be created.
      * @param {Boolean} [options.fullscreenButton=true] If set to false, the FullscreenButton widget will not be created.
      * @param {Boolean} [options.geocoder=true] If set to false, the Geocoder widget will not be created.
      * @param {Boolean} [options.homeButton=true] If set to false, the HomeButton widget will not be created.
@@ -252,6 +255,15 @@ Either specify options.imageryProvider instead or set options.baseLayerPicker to
             infoBoxContainer.className = 'cesium-viewer-infoBoxContainer';
             viewerContainer.appendChild(infoBoxContainer);
             infoBox = new InfoBox(infoBoxContainer);
+        }
+
+        //Camera Control
+        var cameraControl;
+        if (!defined(options.cameraControl) || options.cameraControl !== false) {
+            var cameraControlContainer = document.createElement('div');
+            cameraControlContainer.className = 'cesium-viewer-cameraControlContainer';
+            viewerContainer.appendChild(cameraControlContainer);
+            cameraControl = new CameraControl(cameraControlContainer);
         }
 
         //Main Toolbar
@@ -414,6 +426,7 @@ Either specify options.imageryProvider instead or set options.baseLayerPicker to
         this._cesiumWidget = cesiumWidget;
         this._selectionIndicator = selectionIndicator;
         this._infoBox = infoBox;
+        this._cameraControl = cameraControl;
         this._dataSourceCollection = dataSourceCollection;
         this._dataSourceDisplay = dataSourceDisplay;
         this._clockViewModel = clockViewModel;
@@ -479,6 +492,17 @@ Either specify options.imageryProvider instead or set options.baseLayerPicker to
         infoBox : {
             get : function() {
                 return this._infoBox;
+            }
+        },
+
+        /**
+         * Gets the camera control.
+         * @memberof Viewer.prototype
+         * @type {CameraControl}
+         */
+        cameraControl : {
+            get : function() {
+                return this._cameraControl;
             }
         },
 
@@ -748,6 +772,10 @@ Either specify options.imageryProvider instead or set options.baseLayerPicker to
             this._infoBox.viewModel.maxHeight = panelMaxHeight;
         }
 
+        if (defined(this._cameraControl)) {
+            this._cameraControl.viewModel.maxHeight = panelMaxHeight;
+        }
+
         var timeline = this._timeline;
         var timelineExists = defined(timeline);
         var animationExists = defined(this._animation);
@@ -878,6 +906,11 @@ Either specify options.imageryProvider instead or set options.baseLayerPicker to
             this._fullscreenSubscription.dispose();
             this._element.removeChild(this._fullscreenButton.container);
             this._fullscreenButton = this._fullscreenButton.destroy();
+        }
+
+        if (defined(this._cameraControl)) {
+            this._element.removeChild(this._cameraControl.container);
+            this._cameraControl = this._cameraControl.destroy();
         }
 
         if (defined(this._infoBox)) {

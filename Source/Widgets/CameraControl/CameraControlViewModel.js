@@ -1,0 +1,162 @@
+/*global define*/
+define([
+        '../../Core/Cartesian2',
+        '../../Core/defaultValue',
+        '../../Core/defined',
+        '../../Core/defineProperties',
+        '../../Core/Event',
+        '../../Core/formatError',
+        '../../ThirdParty/knockout',
+        '../../ThirdParty/when'
+    ], function(
+        Cartesian2,
+        defaultValue,
+        defined,
+        defineProperties,
+        Event,
+        formatError,
+        knockout,
+        when) {
+    "use strict";
+
+    var screenSpacePos = new Cartesian2();
+    var cameraEnabledPath = 'M 13.84375 7.03125 C 11.412798 7.03125 9.46875 8.975298 9.46875 11.40625 L 9.46875 11.59375 L 2.53125 7.21875 L 2.53125 24.0625 L 9.46875 19.6875 C 9.4853444 22.104033 11.423165 24.0625 13.84375 24.0625 L 25.875 24.0625 C 28.305952 24.0625 30.28125 22.087202 30.28125 19.65625 L 30.28125 11.40625 C 30.28125 8.975298 28.305952 7.03125 25.875 7.03125 L 13.84375 7.03125 z';
+    var cameraDisabledPath = 'M 27.34375 1.65625 L 5.28125 27.9375 L 8.09375 30.3125 L 30.15625 4.03125 L 27.34375 1.65625 z M 13.84375 7.03125 C 11.412798 7.03125 9.46875 8.975298 9.46875 11.40625 L 9.46875 11.59375 L 2.53125 7.21875 L 2.53125 24.0625 L 9.46875 19.6875 C 9.4724893 20.232036 9.5676108 20.7379 9.75 21.21875 L 21.65625 7.03125 L 13.84375 7.03125 z M 28.21875 7.71875 L 14.53125 24.0625 L 25.875 24.0625 C 28.305952 24.0625 30.28125 22.087202 30.28125 19.65625 L 30.28125 11.40625 C 30.28125 9.8371439 29.456025 8.4902779 28.21875 7.71875 z';
+
+    /**
+     * The view model for {@link CameraControl}.
+     * @alias CameraControlViewModel
+     * @constructor
+     */
+    var CameraControlViewModel = function() {
+        this._cameraClicked = new Event();
+        this._closeClicked = new Event();
+
+        /**
+         * Gets or sets the maximum height of the info box in pixels.  This property is observable.
+         * @type {Number}
+         */
+        this.maxHeight = 500;
+
+        /**
+         * Gets or sets whether the camera tracking icon is enabled.
+         * @type {Boolean}
+         */
+        this.enableCamera = false;
+
+        /**
+         * Gets or sets the status of current camera tracking of the selected object.
+         * @type {Boolean}
+         */
+        this.isCameraTracking = false;
+
+        /**
+         * Gets or sets the visibility of the camera control dialog.
+         * @type {Boolean}
+         */
+        this.show = false;
+
+        knockout.track(this, ['show', 'maxHeight', 'enableCamera', 'isCameraTracking']);
+
+        /**
+         * Gets or sets the un-sanitized description HTML for the info box.
+         * @type {String}
+         */
+        this.descriptionRawHtml = undefined;
+        knockout.defineProperty(this, 'descriptionRawHtml', {
+            get : function() {
+                return this._descriptionRawHtml;
+            },
+            set : function(value) {
+                if (this._descriptionRawHtml !== value) {
+                    this._descriptionRawHtml = value;
+                    this._descriptionSanitizedHtml = this.loadingIndicatorHtml;
+                    var that = this;
+                    when(this.sanitizer(value), function(sanitized) {
+                        // make sure the raw HTML still matches the input we sanitized,
+                        // in case it was changed again while we were sanitizing.
+                        if (that._descriptionRawHtml === value) {
+                            that._descriptionSanitizedHtml = sanitized;
+                        }
+                    }).otherwise(function(error) {
+                        /*global console*/
+                        console.log('An error occurred while sanitizing HTML: ' + formatError(error));
+                    });
+                }
+            }
+        });
+
+        /**
+         * Gets the sanitized description HTML for the info box.
+         * @type {String}
+         */
+        this.descriptionSanitizedHtml = undefined;
+        knockout.defineProperty(this, 'descriptionSanitizedHtml', {
+            get : function() {
+                return this._descriptionSanitizedHtml;
+            }
+        });
+
+        /**
+         * Gets the SVG path of the camera icon, which can change to be "crossed out" or not.
+         * @type {String}
+         */
+        this.cameraIconPath = undefined;
+        knockout.defineProperty(this, 'cameraIconPath', {
+            get : function() {
+                return (this.enableCamera || this.isCameraTracking) ? cameraEnabledPath : cameraDisabledPath;
+            }
+        });
+
+        /**
+         * Gets the maximum height of sections within the info box, minus an offset, in CSS-ready form.
+         * @param {Number} offset The offset in pixels.
+         * @returns {String}
+         */
+        CameraControlViewModel.prototype.maxHeightOffset = function(offset) {
+            return (this.maxHeight - offset) + 'px';
+        };
+
+        knockout.defineProperty(this, '_bodyless', {
+            get : function() {
+                return !this._descriptionSanitizedHtml;
+            }
+        });
+    };
+
+    defineProperties(CameraControlViewModel.prototype, {
+        /**
+         * Gets an {@link Event} that is fired when the user clicks the camera icon.
+         */
+        cameraClicked : {
+            get : function() {
+                return this._cameraClicked;
+            }
+        },
+        /**
+         * Gets an {@link Event} that is fired when the user closes the info box.
+         */
+        closeClicked : {
+            get : function() {
+                return this._closeClicked;
+            }
+        },
+        /**
+         * Gets the HTML sanitization function to use for the selection description.
+         */
+        sanitizer : {
+            get : function() {
+                return defaultValue(this._sanitizer, CameraControlViewModel.defaultSanitizer);
+            },
+            set : function(value) {
+                this._sanitizer = value;
+                //Force resanitization of existing text
+                var oldHtml = this._descriptionRawHtml;
+                this._descriptionRawHtml = '';
+                this.descriptionRawHtml = oldHtml;
+            }
+        }
+    });
+
+    return CameraControlViewModel;
+});
