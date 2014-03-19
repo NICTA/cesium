@@ -15,6 +15,7 @@ define([
         '../Animation/AnimationViewModel',
         '../BaseLayerPicker/BaseLayerPicker',
         '../BaseLayerPicker/createDefaultBaseLayers',
+        '../CameraButton/CameraButton',
         '../CameraControl/CameraControl',
         '../CesiumWidget/CesiumWidget',
         '../ClockViewModel',
@@ -44,6 +45,7 @@ define([
         AnimationViewModel,
         BaseLayerPicker,
         createDefaultBaseLayers,
+        CameraButton,
         CameraControl,
         CesiumWidget,
         ClockViewModel,
@@ -109,7 +111,7 @@ define([
      * @param {Object} [options] Configuration options for the widget.
      * @param {Boolean} [options.animation=true] If set to false, the Animation widget will not be created.
      * @param {Boolean} [options.baseLayerPicker=true] If set to false, the BaseLayerPicker widget will not be created.
-     * @param {Boolean} [options.cameraControl=true] If set to false, the CameraControl widget will not be created.
+     * @param {Boolean} [options.cameraControl=true] If set to false, the CameraControl widget and its button will not be created.
      * @param {Boolean} [options.fullscreenButton=true] If set to false, the FullscreenButton widget will not be created.
      * @param {Boolean} [options.geocoder=true] If set to false, the Geocoder widget will not be created.
      * @param {Boolean} [options.homeButton=true] If set to false, the HomeButton widget will not be created.
@@ -281,6 +283,15 @@ Either specify options.imageryProvider instead or set options.baseLayerPicker to
                 container : geocoderContainer,
                 scene : cesiumWidget.scene,
                 ellipsoid : cesiumWidget.centralBody.ellipsoid
+            });
+        }
+
+        //CameraButton
+        var cameraButton;
+        if (defined(cameraControl)) {
+            cameraButton = new CameraButton(toolbar);
+            eventHelper.add(cameraButton.viewModel.command.afterExecute, function() {
+                cameraControl.viewModel.show = !cameraControl.viewModel.show;
             });
         }
 
