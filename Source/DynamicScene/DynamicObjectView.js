@@ -108,26 +108,30 @@ define([
                     toFixed = Matrix3.transpose(toInertial, update3DMatrix3Scratch3);
                 }
 
-                // Z along the position
-                var zBasis = update3DCartesian3Scratch2;
-                Cartesian3.normalize(cartesian, zBasis);
-                Cartesian3.normalize(deltaCartesian, deltaCartesian);
+                // X along the nadir
+                var xBasis = update3DCartesian3Scratch2;
+                Cartesian3.normalize(cartesian, xBasis);
+                Cartesian3.negate(xBasis, xBasis);
+                //Cartesian3.normalize(deltaCartesian, deltaCartesian);
 
-                Matrix3.multiplyByVector(toInertial, zBasis, zBasis);
-                Matrix3.multiplyByVector(toInertialDelta, deltaCartesian, deltaCartesian);
+                //Matrix3.multiplyByVector(toInertial, zBasis, zBasis);
+                //Matrix3.multiplyByVector(toInertialDelta, deltaCartesian, deltaCartesian);
 
-                // Y is along the angular momentum vector (e.g. "orbit normal")
-                var yBasis = Cartesian3.cross(zBasis, deltaCartesian, update3DCartesian3Scratch3);
-                if (!Cartesian3.equalsEpsilon(yBasis, Cartesian3.ZERO, CesiumMath.EPSILON6)) {
-                    // X is along the cross of y and z (right handed basis / in the direction of motion)
-                    var xBasis = Cartesian3.cross(yBasis, zBasis, update3DCartesian3Scratch1);
+                // Z is North
+                var zBasis = Cartesian3.clone(Cartesian3.UNIT_Z, update3DCartesian3Scratch3);
+                //var yBasis = Cartesian3.cross(zBasis, deltaCartesian, update3DCartesian3Scratch3);
+                //if (!Cartesian3.equalsEpsilon(yBasis, Cartesian3.ZERO, CesiumMath.EPSILON6)) {
+                    // Y is along the cross of z and x (right handed basis / in the direction of motion)
+                    var yBasis = Cartesian3.cross(zBasis, xBasis, update3DCartesian3Scratch1);
 
-                    Matrix3.multiplyByVector(toFixed, xBasis, xBasis);
-                    Matrix3.multiplyByVector(toFixed, yBasis, yBasis);
-                    Matrix3.multiplyByVector(toFixed, zBasis, zBasis);
+                    //Matrix3.multiplyByVector(toFixed, xBasis, xBasis);
+                    //Matrix3.multiplyByVector(toFixed, yBasis, yBasis);
+                    //Matrix3.multiplyByVector(toFixed, zBasis, zBasis);
 
                     Cartesian3.normalize(xBasis, xBasis);
                     Cartesian3.normalize(yBasis, yBasis);
+
+                    zBasis = Cartesian3.cross(xBasis, yBasis, update3DCartesian3Scratch3);
                     Cartesian3.normalize(zBasis, zBasis);
 
                     var transform = update3DTransform;
@@ -150,7 +154,7 @@ define([
 
                     camera.transform = transform;
                     successful = true;
-                }
+                //}
             }
 
             if (!successful) {
