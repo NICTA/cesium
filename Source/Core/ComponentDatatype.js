@@ -103,6 +103,23 @@ define([
         })
     };
 
+    ComponentDatatype.fromValue = function(value) {
+        switch (value) {
+        case ComponentDatatype.BYTE.value:
+            return ComponentDatatype.BYTE;
+        case ComponentDatatype.UNSIGNED_BYTE.value:
+            return ComponentDatatype.UNSIGNED_BYTE;
+        case ComponentDatatype.SHORT.value:
+            return ComponentDatatype.SHORT;
+        case ComponentDatatype.UNSIGNED_SHORT.value:
+            return ComponentDatatype.UNSIGNED_SHORT;
+        case ComponentDatatype.FLOAT.value:
+            return ComponentDatatype.FLOAT;
+        case ComponentDatatype.DOUBLE.value:
+            return ComponentDatatype.DOUBLE;
+        }
+    };
+
     /**
      * Validates that the provided component datatype is a valid {@link ComponentDatatype}
      *

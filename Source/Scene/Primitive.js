@@ -14,6 +14,7 @@ define([
         '../Core/GeometryAttributes',
         '../Core/GeometryInstance',
         '../Core/GeometryInstanceAttribute',
+        '../Core/GeometryPacker',
         '../Core/Matrix4',
         '../Core/subdivideArray',
         '../Core/TaskProcessor',
@@ -43,6 +44,7 @@ define([
         GeometryAttributes,
         GeometryInstance,
         GeometryInstanceAttribute,
+        GeometryPacker,
         Matrix4,
         subdivideArray,
         TaskProcessor,
@@ -630,7 +632,11 @@ define([
                     this._state = PrimitiveState.CREATING;
 
                     when.all(promises, function(results) {
+                        for (var qq = 0; qq < results.length; qq++) {
+                            results[qq] = GeometryPacker.unpack(results[qq]);
+                        }
                         console.log("createGeometry RESULTS " + new Date().getSeconds());
+
                         that._geometries = Array.prototype.concat.apply(that._geometries, results);
                         that._state = PrimitiveState.CREATED;
                     }, function(error) {

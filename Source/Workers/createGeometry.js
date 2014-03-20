@@ -19,7 +19,7 @@ define([
 
     function runTask(task, createFunction, transferableObjects, results) {
         var geometry = createFunction(task.geometry);
-        PrimitivePipeline.transferGeometry(geometry, transferableObjects);
+        //PrimitivePipeline.transferGeometry(geometry, transferableObjects);
         results.push({
             geometry : geometry,
             index : task.index
@@ -35,7 +35,7 @@ define([
     }
 
     function createGeometry(parameters, transferableObjects) {
-        console.log("createGeometry START " + new Date().getSeconds());
+        //console.log("createGeometry START " + new Date().getSeconds());
         var subTasks = parameters.subTasks;
 
         var results = [];
@@ -55,8 +55,9 @@ define([
             }
         }
         when.all(promises, function() {
-            console.log("createGeometry END " + new Date().getSeconds());
+            //console.log("createGeometry END " + new Date().getSeconds());
             deferred.resolve(GeometryPacker.pack(results));
+            //deferred.resolve(results);
         });
 
         return deferred.promise;
