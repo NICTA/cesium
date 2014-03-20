@@ -35,7 +35,8 @@ define([
     }
 
     function createGeometry(parameters, transferableObjects) {
-        //console.log("createGeometry START " + new Date().getSeconds());
+        //var start = Date.now();
+
         var subTasks = parameters.subTasks;
 
         var results = [];
@@ -45,24 +46,32 @@ define([
         for (var i = 0; i < subTasks.length; i++) {
             var task = subTasks[i];
             var moduleName = task.moduleName;
-            var createFunction = moduleCache[moduleName];
-            if (defined(createFunction)) {
-                runTask(task, createFunction, transferableObjects, results);
+            if (defined(moduleName)) {
+                var createFunction = moduleCache[moduleName];
+                if (defined(createFunction)) {
+                    runTask(task, createFunction, transferableObjects, results);
+                } else {
+                    var innedDeferred = when.defer();
+                    require(['./' + moduleName], createTask(moduleName, innedDeferred, task, createFunction, transferableObjects, results));
+                    promises.push(innedDeferred.promise);
+                }
             } else {
-                var innedDeferred = when.defer();
-                require(['./' + moduleName], createTask(moduleName, innedDeferred, task, createFunction, transferableObjects, results));
-                promises.push(innedDeferred.promise);
+                //preexisting geometry
+                results.push({
+                    geometry : task.geometry,
+                    index : task.index
+                });
             }
         }
         when.all(promises, function() {
-            //console.log("createGeometry END " + new Date().getSeconds());
             var names = [];
-            var packedData = GeometryPacker.pack(results, names);
+            var packedData = GeometryPacker.packForCreateGeoemtry(results, names);
             transferableObjects.push(packedData.buffer);
             deferred.resolve({
                 names : names,
                 data : packedData
             });
+            //console.log("THREAD: createGeometry: " + ((Date.now() - start) / 1000.0).toFixed(3) + " seconds");
         });
 
         return deferred.promise;

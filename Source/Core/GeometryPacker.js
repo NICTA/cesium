@@ -14,16 +14,14 @@ define(['../Core/BoundingSphere',
 
     var GeometryPacker = {};
 
-    function typedArrayConcat(lhs, rhs, count){
-        for(var i = 0; i < rhs.length; i++){
+    function typedArrayConcat(lhs, rhs, count) {
+        for (var i = 0; i < rhs.length; i++) {
             lhs[count++] = rhs[i];
         }
         return count;
     }
 
-    GeometryPacker.createArray = function(items) {
-        //console.log("GeometryPacker.pack START " + new Date().getSeconds());
-
+    function createArrayForCreateGeoemtry(items) {
         var result = [];
         var count = 0;
 
@@ -35,19 +33,24 @@ define(['../Core/BoundingSphere',
             var geometry = item.geometry;
 
             //index
-            result[count++] = index;
+            //result[count++] = index;
+            count++;
 
             //type
-            result[count++] = geometry.primitiveType;
+            //result[count++] = geometry.primitiveType;
+            count++;
 
             //BoundingSphere
-            Cartesian3.pack(geometry.boundingSphere.center, result, count);
-            count += 3;
-            result[count++] = geometry.boundingSphere.radius;
+            //Cartesian3.pack(geometry.boundingSphere.center, result, count);
+            //count += 3;
+            //result[count++] = geometry.boundingSphere.radius;
+            count += 4;
 
             //indices
-            result[count++] = geometry.indices.length;
-            count = typedArrayConcat(result, geometry.indices, count);
+            //result[count++] = geometry.indices.length;
+            count++;
+            //count = typedArrayConcat(result, geometry.indices, count);
+            count += geometry.indices.length;
 
             //attributes
             var attributes = geometry.attributes;
@@ -61,24 +64,24 @@ define(['../Core/BoundingSphere',
             result[count++] = attributesToWrite.length;
             for (var q = 0; q < attributesToWrite.length; q++) {
                 var name = attributesToWrite[q];
-                result[count++] = name;
                 var attribute = attributes[name];
-                result[count++] = attribute.componentDatatype.value;
-                result[count++] = attribute.componentsPerAttribute;
-                result[count++] = attribute.normalize;
-                result[count++] = attribute.values.length;
-                count = typedArrayConcat(result, attribute.values, count);
+                //result[count++] = name;
+                //result[count++] = attribute.componentDatatype.value;
+                //result[count++] = attribute.componentsPerAttribute;
+                //result[count++] = attribute.normalize;
+                //result[count++] = attribute.values.length;
+                count += 5;
+                //count = typedArrayConcat(result, attribute.values, count);
+                count += attribute.values.length;
             }
         }
+        return new Float64Array(count);
+    }
 
-        //console.log("GeometryPacker.pack END " + new Date().getSeconds());
-        return new Float64Array(result.length);
-    };
+    GeometryPacker.packForCreateGeoemtry = function(items, attributeNames) {
+        //var start = Date.now();
 
-    GeometryPacker.pack = function(items, attributeNames) {
-        //console.log("GeometryPacker.pack START " + new Date().getSeconds());
-
-        var result = GeometryPacker.createArray(items);
+        var result = createArrayForCreateGeoemtry(items);
         var count = 0;
 
         var meee = {};
@@ -135,12 +138,12 @@ define(['../Core/BoundingSphere',
                 attributeNames[meee[n]] = n;
             }
         }
-        //console.log("GeometryPacker.pack END " + new Date().getSeconds());
+        //console.log("THREAD: GeometryPacker.packForCreateGeoemtry: " + ((Date.now() - start) / 1000.0).toFixed(3) + " seconds");
         return result;
     };
 
-    GeometryPacker.unpack = function(packedGeometry, attributeNames) {
-        //console.log("GeometryPacker.unpack START " + new Date().getSeconds());
+    GeometryPacker.unpackFromCreateGeometry = function(packedGeometry, attributeNames) {
+        //var start = Date.now();
 
         var result = [];
 
@@ -187,7 +190,7 @@ define(['../Core/BoundingSphere',
             });
         }
 
-        //console.log("GeometryPacker.unpack END " + new Date().getSeconds());
+        //console.log("GeometryPacker.unpackFromCreateGeometry: " + ((Date.now() - start) / 1000.0).toFixed(3) + " seconds");
         return result;
     };
     return GeometryPacker;

@@ -42,7 +42,7 @@ require([
     
     var instances = [];
     
-    var granularity = 30;
+    var granularity = 2;
     var i = 0;
     for (var lon = -180.0; lon < 180.0; lon += granularity) {
       for (var lat = -90.0; lat < 90.0; lat += granularity) {
@@ -52,7 +52,8 @@ require([
             extent : Cesium.Extent.fromDegrees(lon, lat, lon + granularity, lat + granularity)
           }),
           attributes : {
-            color : Cesium.ColorGeometryInstanceAttribute.fromColor(Cesium.Color.fromRandom({alpha : 0.5}))
+              show : new Cesium.ShowGeometryInstanceAttribute(true),
+              color : Cesium.ColorGeometryInstanceAttribute.fromColor(Cesium.Color.fromRandom({alpha : 0.5}))
           }
         }));
       }
