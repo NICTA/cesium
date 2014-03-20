@@ -13,21 +13,18 @@ defineSuite([
     /*global jasmine,describe,xdescribe,it,xit,expect,beforeEach,afterEach,beforeAll,afterAll,spyOn,runs,waits,waitsFor*/
 
     it('can pack and unpack', function() {
-        var minimumCorner = new Cartesian3(0, 0, 0);
-        var maximumCorner = new Cartesian3(1, 1, 1);
-        var m = BoxGeometry.createGeometry(new BoxGeometry({
-            minimumCorner : minimumCorner,
-            maximumCorner : maximumCorner,
-            vertexFormat : VertexFormat.ALL
-        }));
-
         var original = [{
             index : 1,
-            geometry : m
+            geometry : BoxGeometry.createGeometry(new BoxGeometry({
+                minimumCorner : new Cartesian3(0, 0, 0),
+                maximumCorner : new Cartesian3(1, 1, 1),
+                vertexFormat : VertexFormat.ALL
+            }))
         }];
-        var packed = GeometryPacker.pack(original);
-        var unpacked = GeometryPacker.unpack(packed);
 
+        var attributeNames = [];
+        var packed = GeometryPacker.pack(original, attributeNames);
+        var unpacked = GeometryPacker.unpack(packed, attributeNames);
         expect(original).toEqual(unpacked);
     });
 });

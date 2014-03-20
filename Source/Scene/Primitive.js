@@ -632,12 +632,14 @@ define([
                     this._state = PrimitiveState.CREATING;
 
                     when.all(promises, function(results) {
+                        var unpackedData = [];
                         for (var qq = 0; qq < results.length; qq++) {
-                            results[qq] = GeometryPacker.unpack(results[qq]);
+                            var aads = results[qq];
+                            unpackedData.push(GeometryPacker.unpack(aads.data, aads.names));
                         }
                         console.log("createGeometry RESULTS " + new Date().getSeconds());
 
-                        that._geometries = Array.prototype.concat.apply(that._geometries, results);
+                        that._geometries = Array.prototype.concat.apply(that._geometries, unpackedData);
                         that._state = PrimitiveState.CREATED;
                     }, function(error) {
                         that._error = error;

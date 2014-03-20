@@ -56,8 +56,13 @@ define([
         }
         when.all(promises, function() {
             //console.log("createGeometry END " + new Date().getSeconds());
-            deferred.resolve(GeometryPacker.pack(results));
-            //deferred.resolve(results);
+            var names = [];
+            var packedData = GeometryPacker.pack(results, names);
+            transferableObjects.push(packedData.buffer);
+            deferred.resolve({
+                names : names,
+                data : packedData
+            });
         });
 
         return deferred.promise;
