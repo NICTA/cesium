@@ -3,12 +3,14 @@ define([
         'require',
         './createTaskProcessorWorker',
         '../Core/defined',
+        '../Core/GeometryPacker',
         '../Scene/PrimitivePipeline',
         '../ThirdParty/when'
     ], function(
         require,
         createTaskProcessorWorker,
         defined,
+        GeometryPacker,
         PrimitivePipeline,
         when) {
     "use strict";
@@ -33,6 +35,7 @@ define([
     }
 
     function createGeometry(parameters, transferableObjects) {
+        console.log("createGeometry START " + new Date().getSeconds());
         var subTasks = parameters.subTasks;
 
         var results = [];
@@ -52,7 +55,8 @@ define([
             }
         }
         when.all(promises, function() {
-            deferred.resolve(results);
+            console.log("createGeometry END " + new Date().getSeconds());
+            deferred.resolve(GeometryPacker.pack(results));
         });
 
         return deferred.promise;

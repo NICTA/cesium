@@ -587,6 +587,7 @@ define([
                 } else if (this._state === PrimitiveState.READY) {
                     instances = (isArray(this.geometryInstances)) ? this.geometryInstances : [this.geometryInstances];
 
+                    console.log("Start " + new Date().getSeconds());
                     length = instances.length;
                     var promises = [];
 
@@ -617,16 +618,19 @@ define([
                         }
                     }
 
+                    console.log("createGeometry scheduleTask START " + new Date().getSeconds());
                     subTasks = subdivideArray(subTasks, numberOfCreationWorkers);
                     for (i = 0; i < subTasks.length; i++) {
                         promises.push(createGeometryTaskProcessors[i].scheduleTask({
                             subTasks : subTasks[i]
                         }));
                     }
+                    console.log("createGeometry scheduleTask END " + new Date().getSeconds());
 
                     this._state = PrimitiveState.CREATING;
 
                     when.all(promises, function(results) {
+                        console.log("createGeometry RESULTS " + new Date().getSeconds());
                         that._geometries = Array.prototype.concat.apply(that._geometries, results);
                         that._state = PrimitiveState.CREATED;
                     }, function(error) {
@@ -649,6 +653,7 @@ define([
                     var transferableObjects = [];
                     PrimitivePipeline.transferInstances(clonedInstances, transferableObjects);
 
+                    console.log("combineGeometry scheduleTask START " + new Date().getSeconds());
                     promise = combineGeometryTaskProcessor.scheduleTask({
                         instances : clonedInstances,
                         pickIds : allowPicking ? createPickIds(context, this, instances) : undefined,
@@ -660,10 +665,12 @@ define([
                         vertexCacheOptimize : this.vertexCacheOptimize,
                         modelMatrix : this.modelMatrix
                     }, transferableObjects);
+                    console.log("combineGeometry scheduleTask END " + new Date().getSeconds());
 
                     this._state = PrimitiveState.COMBINING;
 
                     when(promise, function(result) {
+                        console.log("combineGeometry RESULTS " + new Date().getSeconds());
                         PrimitivePipeline.receiveGeometries(result.geometries);
                         PrimitivePipeline.receivePerInstanceAttributes(result.vaAttributes);
 
