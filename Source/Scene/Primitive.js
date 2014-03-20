@@ -648,11 +648,9 @@ define([
                     instances = (isArray(this.geometryInstances)) ? this.geometryInstances : [this.geometryInstances];
                     var transferableObjects = [];
 
-                    clonedInstances = new Array(instances.length);
-                    length = instances.length;
-                    for (i = 0; i < length; ++i) {
-                        clonedInstances[i] = cloneInstance(instances[i], {});
-                    }
+                    var stringTable = [];
+                    var packedInstances = GeometryPacker.packInstancesForCombine(instances, stringTable);
+                    transferableObjects.push(packedInstances.buffer);
 
                     var results = this._createGeometryResults;
                     length = results.length;
@@ -660,11 +658,18 @@ define([
                         transferableObjects.push(results[i].data.buffer);
                     }
 
+                    var packedPickIds;
+                    if(allowPicking){
+                        packedPickIds = GeometryPacker.packPickIds(createPickIds(context, this, instances));
+                        transferableObjects.push(packedPickIds.buffer);
+                    }
+
                     printLog("combineGeometry scheduleTask START");
                     promise = combineGeometryTaskProcessor.scheduleTask({
-                        instances : clonedInstances,
+                        packedInstances : packedInstances,
+                        stringTable: stringTable,
                         results : results,
-                        pickIds : allowPicking ? createPickIds(context, this, instances) : undefined,
+                        packedPickIds : packedPickIds,
                         ellipsoid : projection.ellipsoid,
                         isGeographic : projection instanceof GeographicProjection,
                         elementIndexUintSupported : context.getElementIndexUint(),

@@ -20,6 +20,9 @@ define([
     function combineGeometry(parameters, transferableObjects) {
         var start = Date.now();
 
+        parameters.instances = GeometryPacker.unpackInstancesForCombine(parameters.packedInstances, parameters.stringTable);
+        parameters.pickIds = GeometryPacker.unpackPickIds(parameters.packedPickIds);
+
         var results = parameters.results;
         var length = results.length;
         var instances = parameters.instances;
@@ -38,7 +41,6 @@ define([
         parameters.projection = parameters.isGeographic ? new GeographicProjection(parameters.ellipsoid) : new WebMercatorProjection(parameters.ellipsoid);
         parameters.modelMatrix = Matrix4.clone(parameters.modelMatrix);
 
-        PrimitivePipeline.receiveInstances(parameters.instances);
         var combinedResult = PrimitivePipeline.combineGeometry(parameters);
         PrimitivePipeline.transferGeometries(combinedResult.geometries, transferableObjects);
         PrimitivePipeline.transferPerInstanceAttributes(combinedResult.vaAttributes, transferableObjects);
