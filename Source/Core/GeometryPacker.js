@@ -27,14 +27,7 @@ define(['../Core/BoundingSphere',
 
         var length = items.length;
         for (var i = 0; i < length; i++) {
-            var item = items[i];
-
-            var index = item.index;
-            var geometry = item.geometry;
-
-            //index
-            //result[count++] = index;
-            count++;
+            var geometry = items[i];
 
             //type
             //result[count++] = geometry.primitiveType;
@@ -89,13 +82,7 @@ define(['../Core/BoundingSphere',
 
         var length = items.length;
         for (var i = 0; i < length; i++) {
-            var item = items[i];
-
-            var index = item.index;
-            var geometry = item.geometry;
-
-            //index
-            result[count++] = index;
+            var geometry = items[i];
 
             //type
             result[count++] = geometry.primitiveType;
@@ -149,7 +136,6 @@ define(['../Core/BoundingSphere',
 
         var i = 0;
         while (i < packedGeometry.length) {
-            var index = packedGeometry[i++];
             var primitiveType = packedGeometry[i++];
 
             //BoundingSphere
@@ -179,15 +165,12 @@ define(['../Core/BoundingSphere',
                 }
                 attribute.values = values;
             }
-            result.push({
-                index : index,
-                geometry : new Geometry({
-                    primitiveType : primitiveType,
-                    boundingSphere : boundingSphere,
-                    indices : indices,
-                    attributes : attributes
-                })
-            });
+            result.push(new Geometry({
+                primitiveType : primitiveType,
+                boundingSphere : boundingSphere,
+                indices : indices,
+                attributes : attributes
+            }));
         }
 
         //console.log("GeometryPacker.unpackFromCreateGeometry: " + ((Date.now() - start) / 1000.0).toFixed(3) + " seconds");

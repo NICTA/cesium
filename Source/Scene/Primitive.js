@@ -614,8 +614,7 @@ define([
                         this._instanceIds.push(instances[i].id);
                         subTasks.push({
                             moduleName : geometry._workerName,
-                            geometry : geometry,
-                            index : i
+                            geometry : geometry
                         });
                     }
 
@@ -648,7 +647,12 @@ define([
                 } else if (this._state === PrimitiveState.CREATED) {
                     instances = (isArray(this.geometryInstances)) ? this.geometryInstances : [this.geometryInstances];
                     var transferableObjects = [];
-                    //PrimitivePipeline.transferInstances(instances, transferableObjects);
+
+                    clonedInstances = new Array(instances.length);
+                    length = instances.length;
+                    for (i = 0; i < length; ++i) {
+                        clonedInstances[i] = cloneInstance(instances[i], {});
+                    }
 
                     var results = this._createGeometryResults;
                     length = results.length;
@@ -658,7 +662,7 @@ define([
 
                     printLog("combineGeometry scheduleTask START");
                     promise = combineGeometryTaskProcessor.scheduleTask({
-                        instances : instances,
+                        instances : clonedInstances,
                         results : results,
                         pickIds : allowPicking ? createPickIds(context, this, instances) : undefined,
                         ellipsoid : projection.ellipsoid,
@@ -681,7 +685,7 @@ define([
                         that._geometries = result.geometries;
                         that._attributeLocations = result.attributeLocations;
                         that._vaAttributes = result.vaAttributes;
-                        //that._perInstanceAttributeLocations = result.vaAttributeLocations;
+                        that._perInstanceAttributeLocations = result.vaAttributeLocations;
                         Matrix4.clone(result.modelMatrix, that.modelMatrix);
                         that._state = PrimitiveState.COMBINED;
                     }, function(error) {
@@ -739,6 +743,7 @@ define([
                 this._attributeLocations = result.attributeLocations;
                 this._vaAttributes = result.vaAttributes;
                 this._perInstanceAttributeLocations = result.vaAttributeLocations;
+
                 Matrix4.clone(result.modelMatrix, this.modelMatrix);
 
                 printLog("combineGeometry END");

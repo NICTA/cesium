@@ -20,10 +20,7 @@ define([
     function runTask(task, createFunction, transferableObjects, results) {
         var geometry = createFunction(task.geometry);
         //PrimitivePipeline.transferGeometry(geometry, transferableObjects);
-        results.push({
-            geometry : geometry,
-            index : task.index
-        });
+        results.push(geometry);
     }
 
     function createTask(moduleName, deferred, task, createFunction, transferableObjects, results) {
@@ -57,10 +54,7 @@ define([
                 }
             } else {
                 //preexisting geometry
-                results.push({
-                    geometry : task.geometry,
-                    index : task.index
-                });
+                results.push(task.geometry);
             }
         }
         when.all(promises, function() {
