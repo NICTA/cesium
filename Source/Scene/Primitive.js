@@ -563,7 +563,8 @@ define([
         console.log(msg + ": " + ((performance.now() - logEpoch) / 1000.0).toFixed(3) + " seconds");
         resetLog();
     }
-
+var startaaa;
+var ende;
     /**
      * @private
      */
@@ -596,7 +597,9 @@ define([
         var that = this;
 
         if (this._state !== PrimitiveState.COMPLETE && this._state !== PrimitiveState.COMBINED) {
-
+            if(!defined(startaaa)){
+                startaaa = Date.now();
+            }
             if (this.asynchronous) {
                 if (this._state === PrimitiveState.FAILED) {
                     throw this._error;
@@ -653,6 +656,7 @@ define([
                     transferableObjects.push(packedInstances.buffer);
 
                     var results = this._createGeometryResults;
+                    this._createGeometryResults = undefined;
                     length = results.length;
                     for (i = 0; i < length; i++) {
                         transferableObjects.push(results[i].data.buffer);
@@ -690,7 +694,10 @@ define([
                         that._geometries = result.geometries;
                         that._attributeLocations = result.attributeLocations;
                         that._vaAttributes = result.vaAttributes;
-                        that._perInstanceAttributeLocations = result.vaAttributeLocations;
+                        printLog("GeometryPacker.unpackAttributeLocations 1");
+                        that._perInstanceAttributeLocations = GeometryPacker.unpackAttributeLocations(result.packedVaAttributeLocations, result.vaAttributes);
+                        printLog("GeometryPacker.unpackAttributeLocations 2");
+
                         Matrix4.clone(result.modelMatrix, that.modelMatrix);
                         that._state = PrimitiveState.COMBINED;
                     }, function(error) {
@@ -748,7 +755,6 @@ define([
                 this._attributeLocations = result.attributeLocations;
                 this._vaAttributes = result.vaAttributes;
                 this._perInstanceAttributeLocations = result.vaAttributeLocations;
-
                 Matrix4.clone(result.modelMatrix, this.modelMatrix);
 
                 printLog("combineGeometry END");
@@ -759,6 +765,12 @@ define([
         var attributeLocations = this._attributeLocations;
 
         if (this._state === PrimitiveState.COMBINED) {
+            if(defined(ende)){
+                ende = Date.now();
+                console.log(ende - startaaa);
+            }
+            ende = Date.now();
+
             geometries = this._geometries;
             var vaAttributes = this._vaAttributes;
 

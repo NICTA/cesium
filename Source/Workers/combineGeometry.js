@@ -44,10 +44,14 @@ define([
         var combinedResult = PrimitivePipeline.combineGeometry(parameters);
         PrimitivePipeline.transferGeometries(combinedResult.geometries, transferableObjects);
         PrimitivePipeline.transferPerInstanceAttributes(combinedResult.vaAttributes, transferableObjects);
+
+        combinedResult.packedVaAttributeLocations = GeometryPacker.packAttributeLocations(combinedResult.vaAttributeLocations);
+        transferableObjects.push(combinedResult.packedVaAttributeLocations.packedData.buffer);
+        delete combinedResult.vaAttributeLocations;
+
         if (typeof console !== 'undefined') {
             console.log("THREAD: combineGeometry: " + ((Date.now() - start) / 1000.0).toFixed(3) + " seconds");
         }
-
         return combinedResult;
     }
 
