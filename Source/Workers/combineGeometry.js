@@ -48,10 +48,6 @@ define([
         combinedResult.packedVaAttributeLocations = GeometryPacker.packAttributeLocations(combinedResult.vaAttributeLocations);
         transferableObjects.push(combinedResult.packedVaAttributeLocations.packedData.buffer);
         delete combinedResult.vaAttributeLocations;
-
-        if (typeof console !== 'undefined') {
-            console.log("THREAD: combineGeometry: " + ((Date.now() - start) / 1000.0).toFixed(3) + " seconds");
-        }
         return combinedResult;
     }
 

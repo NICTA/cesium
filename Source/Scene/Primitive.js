@@ -551,20 +551,6 @@ define([
         }
     });
 
-    var logEpoch;
-    function resetLog(msg) {
-        logEpoch = performance.now();
-        if (defined(msg)) {
-            console.log(msg);
-        }
-    }
-
-    function printLog(msg) {
-        console.log(msg + ": " + ((performance.now() - logEpoch) / 1000.0).toFixed(3) + " seconds");
-        resetLog();
-    }
-var startaaa;
-var ende;
     /**
      * @private
      */
@@ -597,16 +583,12 @@ var ende;
         var that = this;
 
         if (this._state !== PrimitiveState.COMPLETE && this._state !== PrimitiveState.COMBINED) {
-            if(!defined(startaaa)){
-                startaaa = Date.now();
-            }
             if (this.asynchronous) {
                 if (this._state === PrimitiveState.FAILED) {
                     throw this._error;
                 } else if (this._state === PrimitiveState.READY) {
                     instances = (isArray(this.geometryInstances)) ? this.geometryInstances : [this.geometryInstances];
 
-                    resetLog("asynchronous start");
                     length = instances.length;
                     var promises = [];
 
@@ -628,20 +610,17 @@ var ende;
                         }
                     }
 
-                    printLog("createGeometry scheduleTask START");
                     subTasks = subdivideArray(subTasks, numberOfCreationWorkers);
                     for (i = 0; i < subTasks.length; i++) {
                         promises.push(createGeometryTaskProcessors[i].scheduleTask({
                             subTasks : subTasks[i]
                         }));
                     }
-                    printLog("createGeometry scheduleTask END");
 
                     this._state = PrimitiveState.CREATING;
 
                     when.all(promises, function(results) {
                         that._createGeometryResults = results;
-                        printLog("createGeometry RESULTS");
                         that._state = PrimitiveState.CREATED;
                     }, function(error) {
                         that._error = error;
@@ -668,7 +647,6 @@ var ende;
                         transferableObjects.push(packedPickIds.buffer);
                     }
 
-                    printLog("combineGeometry scheduleTask START");
                     promise = combineGeometryTaskProcessor.scheduleTask({
                         packedInstances : packedInstances,
                         stringTable: stringTable,
@@ -682,22 +660,17 @@ var ende;
                         vertexCacheOptimize : this.vertexCacheOptimize,
                         modelMatrix : this.modelMatrix
                     }, transferableObjects);
-                    printLog("combineGeometry scheduleTask END");
 
                     this._state = PrimitiveState.COMBINING;
 
                     when(promise, function(result) {
-                        printLog("combineGeometry RESULTS");
                         PrimitivePipeline.receiveGeometries(result.geometries);
                         PrimitivePipeline.receivePerInstanceAttributes(result.vaAttributes);
 
                         that._geometries = result.geometries;
                         that._attributeLocations = result.attributeLocations;
                         that._vaAttributes = result.vaAttributes;
-                        printLog("GeometryPacker.unpackAttributeLocations 1");
                         that._perInstanceAttributeLocations = GeometryPacker.unpackAttributeLocations(result.packedVaAttributeLocations, result.vaAttributes);
-                        printLog("GeometryPacker.unpackAttributeLocations 2");
-
                         Matrix4.clone(result.modelMatrix, that.modelMatrix);
                         that._state = PrimitiveState.COMBINED;
                     }, function(error) {
@@ -710,8 +683,6 @@ var ende;
                 length = instances.length;
                 geometries = [];
 
-                resetLog("synchronous start");
-                printLog("createGeometry START");
                 for (i = 0; i < length; ++i) {
                     geometry = instances[i].geometry;
                     this._instanceIds.push(instances[i].id);
@@ -729,7 +700,6 @@ var ende;
                     }
                 }
 
-                printLog("createGeometry END");
                 clonedInstances = new Array(instances.length);
                 length = geometries.length;
                 for (i = 0; i < length; ++i) {
@@ -738,7 +708,6 @@ var ende;
                     clonedInstances[index] = cloneInstance(instances[index], geometry.geometry);
                 }
 
-                printLog("combineGeometry START");
                 var result = PrimitivePipeline.combineGeometry({
                     instances : clonedInstances,
                     pickIds : allowPicking ? createPickIds(context, this, instances) : undefined,
@@ -757,7 +726,6 @@ var ende;
                 this._perInstanceAttributeLocations = result.vaAttributeLocations;
                 Matrix4.clone(result.modelMatrix, this.modelMatrix);
 
-                printLog("combineGeometry END");
                 this._state = PrimitiveState.COMBINED;
             }
         }
@@ -765,12 +733,6 @@ var ende;
         var attributeLocations = this._attributeLocations;
 
         if (this._state === PrimitiveState.COMBINED) {
-            if(defined(ende)){
-                ende = Date.now();
-                console.log(ende - startaaa);
-            }
-            ende = Date.now();
-
             geometries = this._geometries;
             var vaAttributes = this._vaAttributes;
 
