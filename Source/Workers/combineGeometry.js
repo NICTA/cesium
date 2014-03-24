@@ -30,7 +30,7 @@ define([
         for (var i = 0; i < length; i++) {
             var result = results[i];
 
-            var geometries = GeometryPacker.unpackFromCreateGeometry(result.data, result.names);
+            var geometries = GeometryPacker.unpackCreateGeometryResults(result);
             var geometriesLength = geometries.length;
             for (var x = 0; x < geometriesLength; x++) {
                 instances[index++].geometry = geometries[x];

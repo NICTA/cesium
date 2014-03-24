@@ -638,7 +638,7 @@ define([
                     this._createGeometryResults = undefined;
                     length = results.length;
                     for (i = 0; i < length; i++) {
-                        transferableObjects.push(results[i].data.buffer);
+                        transferableObjects.push(results[i].packedData.buffer);
                     }
 
                     var packedPickIds;

@@ -4,68 +4,51 @@ define([
         './createTaskProcessorWorker',
         '../Core/defined',
         '../Core/GeometryPacker',
-        '../Scene/PrimitivePipeline',
         '../ThirdParty/when'
     ], function(
         require,
         createTaskProcessorWorker,
         defined,
         GeometryPacker,
-        PrimitivePipeline,
         when) {
     "use strict";
 
     var moduleCache = {};
 
-    function runTask(task, createFunction, transferableObjects, results) {
-        var geometry = createFunction(task.geometry);
-        //PrimitivePipeline.transferGeometry(geometry, transferableObjects);
-        results.push(geometry);
-    }
-
-    function createTask(moduleName, deferred, task, createFunction, transferableObjects, results) {
+    function createTask(moduleName, deferred, geometry, createFunction) {
         return function(createFunction) {
             moduleCache[moduleName] = createFunction;
-            runTask(task, createFunction, transferableObjects, results);
-            deferred.resolve();
+            deferred.resolve(createFunction(geometry));
         };
     }
 
     function createGeometry(parameters, transferableObjects) {
-        //var start = Date.now();
-
         var subTasks = parameters.subTasks;
-
-        var results = [];
         var promises = [];
         var deferred = when.defer();
 
         for (var i = 0; i < subTasks.length; i++) {
             var task = subTasks[i];
             var moduleName = task.moduleName;
+            var innedDeferred = when.defer();
             if (defined(moduleName)) {
                 var createFunction = moduleCache[moduleName];
                 if (defined(createFunction)) {
-                    runTask(task, createFunction, transferableObjects, results);
+                    promises.push(innedDeferred.promise);
+                    innedDeferred.resolve(createFunction(task.geometry));
                 } else {
-                    var innedDeferred = when.defer();
-                    require(['./' + moduleName], createTask(moduleName, innedDeferred, task, createFunction, transferableObjects, results));
+                    require(['./' + moduleName], createTask(moduleName, innedDeferred, task.geometry, createFunction));
                     promises.push(innedDeferred.promise);
                 }
             } else {
-                //preexisting geometry
-                results.push(task.geometry);
+                //Already created geometry
+                promises.push(innedDeferred.promise);
+                innedDeferred.resolve(task.geometry);
             }
         }
-        when.all(promises, function() {
-            var names = [];
-            var packedData = GeometryPacker.packForCreateGeoemtry(results, names);
-            transferableObjects.push(packedData.buffer);
-            deferred.resolve({
-                names : names,
-                data : packedData
-            });
-            //console.log("THREAD: createGeometry: " + ((Date.now() - start) / 1000.0).toFixed(3) + " seconds");
+
+        when.all(promises, function(results) {
+            deferred.resolve(GeometryPacker.packCreateGeometryResults(results, transferableObjects));
         });
 
         return deferred.promise;

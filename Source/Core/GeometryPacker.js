@@ -18,13 +18,6 @@ define(['../Core/BoundingSphere',
 
     var GeometryPacker = {};
 
-    function typedArrayConcat(lhs, rhs, count) {
-        for (var i = 0; i < rhs.length; i++) {
-            lhs[count++] = rhs[i];
-        }
-        return count;
-    }
-
     function createArrayForCreateGeoemtry(items) {
         var count = 1;
         var length = items.length;
@@ -100,7 +93,7 @@ define(['../Core/BoundingSphere',
             for (var q = 0; q < attributesToWrite.length; q++) {
                 var name = attributesToWrite[q];
                 var attribute = attributes[name];
-                //result[count++] = meee[name];
+                //result[count++] = stringHash[name];
                 //result[count++] = attribute.componentDatatype.value;
                 //result[count++] = attribute.componentsPerAttribute;
                 //result[count++] = attribute.normalize;
@@ -132,7 +125,7 @@ define(['../Core/BoundingSphere',
             for (var q = 0; q < propertiesToWrites.length; q++) {
                 var name = propertiesToWrites[q];
                 var property = instance[name];
-                //result[count++] = meee[name];
+                //result[count++] = stringHash[name];
                 count++;
                 //result[count++] = property.dirty;
                 count++;
@@ -147,8 +140,8 @@ define(['../Core/BoundingSphere',
                     //result[count++] = index.offset;
                     //var tableIndex = attributeTable.indexOf(attribute.values);
                     //if (tableIndex === -1) {
-                        //tableIndex = attributeTable.length;
-                        //attributeTable.push(attribute.values);
+                    //tableIndex = attributeTable.length;
+                    //attributeTable.push(attribute.values);
                     //}
                     //result[count++] = tableIndex;
                     //attributeTable.push(attribute.values);
@@ -164,30 +157,31 @@ define(['../Core/BoundingSphere',
         return new Float64Array(count);
     }
 
-    GeometryPacker.packForCreateGeoemtry = function(items, stringTable) {
+    GeometryPacker.packCreateGeometryResults = function(items, transferableObjects) {
         //var start = Date.now();
 
-        var result = createArrayForCreateGeoemtry(items);
-        var meee = {};
-        var mapCount = 0;
+        var stringTable = [];
+        var packedData = createArrayForCreateGeoemtry(items);
+        var stringHash = {};
 
         var length = items.length;
         var count = 0;
-        result[count++] = length;
+        packedData[count++] = length;
         for (var i = 0; i < length; i++) {
             var geometry = items[i];
 
             //type
-            result[count++] = geometry.primitiveType;
+            packedData[count++] = geometry.primitiveType;
 
             //BoundingSphere
-            Cartesian3.pack(geometry.boundingSphere.center, result, count);
+            Cartesian3.pack(geometry.boundingSphere.center, packedData, count);
             count += 3;
-            result[count++] = geometry.boundingSphere.radius;
+            packedData[count++] = geometry.boundingSphere.radius;
 
             //indices
-            result[count++] = geometry.indices.length;
-            count = typedArrayConcat(result, geometry.indices, count);
+            packedData[count++] = geometry.indices.length;
+            packedData.set(geometry.indices, count);
+            count += geometry.indices.length;
 
             //attributes
             var attributes = geometry.attributes;
@@ -195,35 +189,39 @@ define(['../Core/BoundingSphere',
             for ( var property in attributes) {
                 if (attributes.hasOwnProperty(property) && defined(attributes[property])) {
                     attributesToWrite.push(property);
-                    if (!defined(meee[property])) {
-                        meee[property] = mapCount++;
+                    if (!defined(stringHash[property])) {
+                        stringHash[property] = stringTable.length;
+                        stringTable.push(property);
                     }
                 }
             }
 
-            result[count++] = attributesToWrite.length;
+            packedData[count++] = attributesToWrite.length;
             for (var q = 0; q < attributesToWrite.length; q++) {
                 var name = attributesToWrite[q];
-                result[count++] = meee[name];
+                packedData[count++] = stringHash[name];
                 var attribute = attributes[name];
-                result[count++] = attribute.componentDatatype.value;
-                result[count++] = attribute.componentsPerAttribute;
-                result[count++] = attribute.normalize;
-                result[count++] = attribute.values.length;
-                count = typedArrayConcat(result, attribute.values, count);
+                packedData[count++] = attribute.componentDatatype.value;
+                packedData[count++] = attribute.componentsPerAttribute;
+                packedData[count++] = attribute.normalize;
+                packedData[count++] = attribute.values.length;
+                packedData.set(attribute.values, count);
+                count += attribute.values.length;
             }
         }
-        for ( var n in meee) {
-            if (meee.hasOwnProperty(n)) {
-                stringTable[meee[n]] = n;
-            }
-        }
-        //console.log("THREAD: GeometryPacker.packForCreateGeoemtry: " + ((Date.now() - start) / 1000.0).toFixed(3) + " seconds");
-        return result;
+        transferableObjects.push(packedData.buffer);
+        //console.log("THREAD: GeometryPacker.packCreateGeometryResults: " + ((Date.now() - start) / 1000.0).toFixed(3) + " seconds");
+        return {
+            stringTable : stringTable,
+            packedData : packedData
+        };
     };
 
-    GeometryPacker.unpackFromCreateGeometry = function(packedGeometry, stringTable) {
+    GeometryPacker.unpackCreateGeometryResults = function(createGeometryResult) {
         //var start = Date.now();
+
+        var stringTable = createGeometryResult.stringTable;
+        var packedGeometry = createGeometryResult.packedData;
 
         var result = new Array(packedGeometry[0]);
         var count = 0;
@@ -267,7 +265,7 @@ define(['../Core/BoundingSphere',
             });
         }
 
-        //console.log("GeometryPacker.unpackFromCreateGeometry: " + ((Date.now() - start) / 1000.0).toFixed(3) + " seconds");
+        //console.log("GeometryPacker.unpackCreateGeometryResults: " + ((Date.now() - start) / 1000.0).toFixed(3) + " seconds");
         return result;
     };
 
@@ -275,8 +273,7 @@ define(['../Core/BoundingSphere',
         //var start = Date.now();
 
         var result = createArrayForCombineGeoemtry(instances);
-        var meee = {};
-        var mapCount = 0;
+        var stringHash = {};
 
         var length = instances.length;
         var count = 0;
@@ -295,8 +292,9 @@ define(['../Core/BoundingSphere',
             for ( var property in attributes) {
                 if (attributes.hasOwnProperty(property) && defined(attributes[property])) {
                     attributesToWrite.push(property);
-                    if (!defined(meee[property])) {
-                        meee[property] = mapCount++;
+                    if (!defined(stringHash[property])) {
+                        stringHash[property] = stringTable.length;
+                        stringTable.push(property);
                     }
                 }
             }
@@ -304,18 +302,14 @@ define(['../Core/BoundingSphere',
             result[count++] = attributesToWrite.length;
             for (var q = 0; q < attributesToWrite.length; q++) {
                 var name = attributesToWrite[q];
-                result[count++] = meee[name];
+                result[count++] = stringHash[name];
                 var attribute = attributes[name];
                 result[count++] = attribute.componentDatatype.value;
                 result[count++] = attribute.componentsPerAttribute;
                 result[count++] = attribute.normalize;
                 result[count++] = attribute.value.length;
-                count = typedArrayConcat(result, attribute.value, count);
-            }
-        }
-        for ( var n in meee) {
-            if (meee.hasOwnProperty(n)) {
-                stringTable[meee[n]] = n;
+                result.set(attribute.value, count);
+                count += attribute.value.length;
             }
         }
         //console.log("THREAD: GeometryPacker.packInstancesForCombine: " + ((Date.now() - start) / 1000.0).toFixed(3) + " seconds");
@@ -358,7 +352,7 @@ define(['../Core/BoundingSphere',
             };
         }
 
-        //console.log("GeometryPacker.unpackFromCreateGeometry: " + ((Date.now() - start) / 1000.0).toFixed(3) + " seconds");
+        //console.log("GeometryPacker.unpackCreateGeometryResults: " + ((Date.now() - start) / 1000.0).toFixed(3) + " seconds");
         return result;
     };
 
@@ -385,8 +379,7 @@ define(['../Core/BoundingSphere',
         var stringTable = [];
         var attributeTable = [];
 
-        var meee = {};
-        var mapCount = 0;
+        var stringHash = {};
         var result = createArrayForAttributeLocations(attributeLocations);
         var length = attributeLocations.length;
         var count = 0;
@@ -398,8 +391,9 @@ define(['../Core/BoundingSphere',
             for ( var propertyName in instance) {
                 if (instance.hasOwnProperty(propertyName) && defined(instance[propertyName])) {
                     propertiesToWrites.push(propertyName);
-                    if (!defined(meee[propertyName])) {
-                        meee[propertyName] = mapCount++;
+                    if (!defined(stringHash[propertyName])) {
+                        stringHash[propertyName] = stringTable.length;
+                        stringTable.push(propertyName);
                     }
                 }
             }
@@ -408,7 +402,7 @@ define(['../Core/BoundingSphere',
             for (var q = 0; q < propertiesToWrites.length; q++) {
                 var name = propertiesToWrites[q];
                 var property = instance[name];
-                result[count++] = meee[name];
+                result[count++] = stringHash[name];
                 result[count++] = property.dirty;
 
                 var indices = property.indices;
@@ -427,15 +421,11 @@ define(['../Core/BoundingSphere',
                 }
 
                 result[count++] = property.value.length;
-                count = typedArrayConcat(result, property.value, count);
+                result.set(property.value, count);
+                count += property.value.length;
             }
         }
 
-        for ( var n in meee) {
-            if (meee.hasOwnProperty(n)) {
-                stringTable[meee[n]] = n;
-            }
-        }
         return {
             stringTable : stringTable,
             packedData : result,
@@ -482,7 +472,7 @@ define(['../Core/BoundingSphere',
             result[count++] = instance;
         }
 
-        //console.log("GeometryPacker.unpackFromCreateGeometry: " + ((Date.now() - start) / 1000.0).toFixed(3) + " seconds");
+        //console.log("GeometryPacker.unpackCreateGeometryResults: " + ((Date.now() - start) / 1000.0).toFixed(3) + " seconds");
         return result;
     };
 

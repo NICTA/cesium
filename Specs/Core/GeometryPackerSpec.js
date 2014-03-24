@@ -27,9 +27,10 @@ defineSuite([
             vertexFormat : VertexFormat.ALL
         }))];
 
-        var stringTable = [];
-        var packed = GeometryPacker.packForCreateGeoemtry(original, stringTable);
-        var unpacked = GeometryPacker.unpackFromCreateGeometry(packed, stringTable);
+        var transferableObjects = [];
+        var packed = GeometryPacker.packCreateGeometryResults(original, transferableObjects);
+        var unpacked = GeometryPacker.unpackCreateGeometryResults(packed);
+        expect(transferableObjects[0]).toBe(packed.packedData.buffer);
         expect(original).toEqual(unpacked);
     });
 
