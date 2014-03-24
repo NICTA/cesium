@@ -20,17 +20,15 @@ define([
     function combineGeometry(parameters, transferableObjects) {
         var start = Date.now();
 
-        parameters.instances = GeometryPacker.unpackInstancesForCombine(parameters.packedInstances, parameters.stringTable);
+        parameters.instances = GeometryPacker.unpackInstancesForCombine(parameters.packedInstances);
         parameters.pickIds = GeometryPacker.unpackPickIds(parameters.packedPickIds);
 
-        var results = parameters.results;
-        var length = results.length;
+        var createGeometryResults = parameters.createGeometryResults;
+        var length = createGeometryResults.length;
         var instances = parameters.instances;
         var index = 0;
         for (var i = 0; i < length; i++) {
-            var result = results[i];
-
-            var geometries = GeometryPacker.unpackCreateGeometryResults(result);
+            var geometries = PrimitivePipeline.unpackCreateGeometryResults(createGeometryResults[i]);
             var geometriesLength = geometries.length;
             for (var x = 0; x < geometriesLength; x++) {
                 instances[index++].geometry = geometries[x];

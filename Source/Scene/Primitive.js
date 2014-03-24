@@ -630,15 +630,13 @@ define([
                     instances = (isArray(this.geometryInstances)) ? this.geometryInstances : [this.geometryInstances];
                     var transferableObjects = [];
 
-                    var stringTable = [];
-                    var packedInstances = GeometryPacker.packInstancesForCombine(instances, stringTable);
-                    transferableObjects.push(packedInstances.buffer);
+                    var packedInstances = GeometryPacker.packInstancesForCombine(instances, transferableObjects);
 
-                    var results = this._createGeometryResults;
+                    var createGeometryResults = this._createGeometryResults;
                     this._createGeometryResults = undefined;
-                    length = results.length;
+                    length = createGeometryResults.length;
                     for (i = 0; i < length; i++) {
-                        transferableObjects.push(results[i].packedData.buffer);
+                        transferableObjects.push(createGeometryResults[i].packedData.buffer);
                     }
 
                     var packedPickIds;
@@ -649,8 +647,7 @@ define([
 
                     promise = combineGeometryTaskProcessor.scheduleTask({
                         packedInstances : packedInstances,
-                        stringTable: stringTable,
-                        results : results,
+                        createGeometryResults : createGeometryResults,
                         packedPickIds : packedPickIds,
                         ellipsoid : projection.ellipsoid,
                         isGeographic : projection instanceof GeographicProjection,

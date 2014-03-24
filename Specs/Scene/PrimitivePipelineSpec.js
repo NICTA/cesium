@@ -1,5 +1,6 @@
 /*global defineSuite*/
 defineSuite([
+         'Scene/PrimitivePipeline',
          'Core/GeometryPacker',
          'Core/BoxGeometry',
          'Core/VertexFormat',
@@ -9,6 +10,7 @@ defineSuite([
          'Core/ShowGeometryInstanceAttribute',
          'Core/ColorGeometryInstanceAttribute'
      ], function(
+         PrimitivePipeline,
          GeometryPacker,
          BoxGeometry,
          VertexFormat,
@@ -28,8 +30,8 @@ defineSuite([
         }))];
 
         var transferableObjects = [];
-        var packed = GeometryPacker.packCreateGeometryResults(original, transferableObjects);
-        var unpacked = GeometryPacker.unpackCreateGeometryResults(packed);
+        var packed = PrimitivePipeline.packCreateGeometryResults(original, transferableObjects);
+        var unpacked = PrimitivePipeline.unpackCreateGeometryResults(packed);
         expect(transferableObjects[0]).toBe(packed.packedData.buffer);
         expect(original).toEqual(unpacked);
     });

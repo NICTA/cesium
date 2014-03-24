@@ -3,13 +3,13 @@ define([
         'require',
         './createTaskProcessorWorker',
         '../Core/defined',
-        '../Core/GeometryPacker',
+        '../Scene/PrimitivePipeline',
         '../ThirdParty/when'
     ], function(
         require,
         createTaskProcessorWorker,
         defined,
-        GeometryPacker,
+        PrimitivePipeline,
         when) {
     "use strict";
 
@@ -48,7 +48,7 @@ define([
         }
 
         when.all(promises, function(results) {
-            deferred.resolve(GeometryPacker.packCreateGeometryResults(results, transferableObjects));
+            deferred.resolve(PrimitivePipeline.packCreateGeometryResults(results, transferableObjects));
         });
 
         return deferred.promise;
