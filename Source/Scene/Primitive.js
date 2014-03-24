@@ -579,7 +579,7 @@ define([
         var clonedInstances;
         var geometries;
         var allowPicking = this.allowPicking;
-
+        var instanceIds = this._instanceIds;
         var that = this;
 
         if (this._state !== PrimitiveState.COMPLETE && this._state !== PrimitiveState.COMBINED) {
@@ -588,15 +588,13 @@ define([
                     throw this._error;
                 } else if (this._state === PrimitiveState.READY) {
                     instances = (isArray(this.geometryInstances)) ? this.geometryInstances : [this.geometryInstances];
-
                     length = instances.length;
+
                     var promises = [];
-
                     var subTasks = [];
-
                     for (i = 0; i < length; ++i) {
                         geometry = instances[i].geometry;
-                        this._instanceIds.push(instances[i].id);
+                        instanceIds.push(instances[i].id);
                         subTasks.push({
                             moduleName : geometry._workerName,
                             geometry : geometry
@@ -627,28 +625,13 @@ define([
                         that._state = PrimitiveState.FAILED;
                     });
                 } else if (this._state === PrimitiveState.CREATED) {
-                    instances = (isArray(this.geometryInstances)) ? this.geometryInstances : [this.geometryInstances];
                     var transferableObjects = [];
+                    instances = (isArray(this.geometryInstances)) ? this.geometryInstances : [this.geometryInstances];
 
-                    var packedInstances = GeometryPacker.packInstancesForCombine(instances, transferableObjects);
-
-                    var createGeometryResults = this._createGeometryResults;
-                    this._createGeometryResults = undefined;
-                    length = createGeometryResults.length;
-                    for (i = 0; i < length; i++) {
-                        transferableObjects.push(createGeometryResults[i].packedData.buffer);
-                    }
-
-                    var packedPickIds;
-                    if(allowPicking){
-                        packedPickIds = GeometryPacker.packPickIds(createPickIds(context, this, instances));
-                        transferableObjects.push(packedPickIds.buffer);
-                    }
-
-                    promise = combineGeometryTaskProcessor.scheduleTask({
-                        packedInstances : packedInstances,
-                        createGeometryResults : createGeometryResults,
-                        packedPickIds : packedPickIds,
+                    promise = combineGeometryTaskProcessor.scheduleTask(PrimitivePipeline.packCombineGeometryParameters({
+                        createGeometryResults : this._createGeometryResults,
+                        instances : instances,
+                        pickIds : allowPicking ? createPickIds(context, this, instances) : undefined,
                         ellipsoid : projection.ellipsoid,
                         isGeographic : projection instanceof GeographicProjection,
                         elementIndexUintSupported : context.getElementIndexUint(),
@@ -656,20 +639,19 @@ define([
                         allowPicking : allowPicking,
                         vertexCacheOptimize : this.vertexCacheOptimize,
                         modelMatrix : this.modelMatrix
-                    }, transferableObjects);
+                    }, transferableObjects), transferableObjects);
 
+                    this._createGeometryResults = undefined;
                     this._state = PrimitiveState.COMBINING;
 
-                    when(promise, function(result) {
-                        PrimitivePipeline.receiveGeometries(result.geometries);
-                        PrimitivePipeline.receivePerInstanceAttributes(result.vaAttributes);
-
+                    when(promise, function(packedResult) {
+                        var result = PrimitivePipeline.unpackCombineGeometryResults(packedResult);
                         that._geometries = result.geometries;
                         that._attributeLocations = result.attributeLocations;
                         that._vaAttributes = result.vaAttributes;
-                        that._perInstanceAttributeLocations = GeometryPacker.unpackAttributeLocations(result.packedVaAttributeLocations, result.vaAttributes);
-                        Matrix4.clone(result.modelMatrix, that.modelMatrix);
+                        that._perInstanceAttributeLocations = result.perInstanceAttributeLocations;
                         that._state = PrimitiveState.COMBINED;
+                        that.modelMatrix = Matrix4.clone(result.modelMatrix, that.modelMatrix);
                     }, function(error) {
                         that._error = error;
                         that._state = PrimitiveState.FAILED;
@@ -678,31 +660,22 @@ define([
             } else {
                 instances = (isArray(this.geometryInstances)) ? this.geometryInstances : [this.geometryInstances];
                 length = instances.length;
-                geometries = [];
-
-                for (i = 0; i < length; ++i) {
-                    geometry = instances[i].geometry;
-                    this._instanceIds.push(instances[i].id);
-
-                    if (defined(geometry.attributes) && defined(geometry.primitiveType)) {
-                        geometries.push({
-                            geometry : cloneGeometry(geometry),
-                            index : i
-                        });
-                    } else {
-                        geometries.push({
-                            geometry : geometry.constructor.createGeometry(geometry),
-                            index : i
-                        });
-                    }
-                }
-
+                geometries = new Array(length);
                 clonedInstances = new Array(instances.length);
-                length = geometries.length;
-                for (i = 0; i < length; ++i) {
-                    geometry = geometries[i];
-                    index = geometry.index;
-                    clonedInstances[index] = cloneInstance(instances[index], geometry.geometry);
+
+                for (i = 0; i < length; i++) {
+                    var instance = instances[i];
+                    geometry = instance.geometry;
+                    instanceIds.push(instance.id);
+
+                    var createdGeometry;
+                    if (defined(geometry.attributes) && defined(geometry.primitiveType)) {
+                        createdGeometry = cloneGeometry(geometry);
+                    } else {
+                        createdGeometry = geometry.constructor.createGeometry(geometry);
+                    }
+                    geometries[i] = createdGeometry;
+                    clonedInstances[i] = cloneInstance(instance, createdGeometry);
                 }
 
                 var result = PrimitivePipeline.combineGeometry({
@@ -721,8 +694,7 @@ define([
                 this._attributeLocations = result.attributeLocations;
                 this._vaAttributes = result.vaAttributes;
                 this._perInstanceAttributeLocations = result.vaAttributeLocations;
-                Matrix4.clone(result.modelMatrix, this.modelMatrix);
-
+                this.modelMatrix = Matrix4.clone(result.modelMatrix, this.modelMatrix);
                 this._state = PrimitiveState.COMBINED;
             }
         }

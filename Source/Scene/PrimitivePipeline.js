@@ -6,11 +6,15 @@ define([
         '../Core/defined',
         '../Core/defaultValue',
         '../Core/DeveloperError',
+        '../Core/Ellipsoid',
         '../Core/FeatureDetection',
+        '../Core/GeographicProjection',
         '../Core/Geometry',
         '../Core/GeometryAttribute',
         '../Core/GeometryPipeline',
-        '../Core/Matrix4'
+        '../Core/Matrix4',
+        '../Core/GeometryPacker',
+        '../Core/WebMercatorProjection'
     ], function(
         BoundingSphere,
         Color,
@@ -18,11 +22,15 @@ define([
         defined,
         defaultValue,
         DeveloperError,
+        Ellipsoid,
         FeatureDetection,
+        GeographicProjection,
         Geometry,
         GeometryAttribute,
         GeometryPipeline,
-        Matrix4) {
+        Matrix4,
+        GeometryPacker,
+        WebMercatorProjection) {
     "use strict";
 
     // Bail out if the browser doesn't support typed arrays, to prevent the setup function
@@ -692,28 +700,101 @@ define([
      * @private
      */
     PrimitivePipeline.packCombineGeometryParameters = function(parameters, transferableObjects) {
+        var createGeometryResults = parameters.createGeometryResults;
+        var length = createGeometryResults.length;
 
+        if (FeatureDetection.supportsTransferringArrayBuffers()) {
+            for (var i = 0; i < length; i++) {
+                transferableObjects.push(createGeometryResults[i].packedData.buffer);
+            }
+        }
+
+        var packedPickIds;
+        if (parameters.allowPicking) {
+            packedPickIds = GeometryPacker.packPickIds(parameters.pickIds);
+            if (FeatureDetection.supportsTransferringArrayBuffers()) {
+                transferableObjects.push(packedPickIds.buffer);
+            }
+        }
+
+        return {
+            createGeometryResults : parameters.createGeometryResults,
+            packedInstances : GeometryPacker.packInstancesForCombine(parameters.instances, transferableObjects),
+            packedPickIds : packedPickIds,
+            ellipsoid : parameters.ellipsoid,
+            isGeographic : parameters.isGeographic,
+            elementIndexUintSupported : parameters.elementIndexUintSupported,
+            allow3DOnly : parameters.allow3DOnly,
+            allowPicking : parameters.allowPicking,
+            vertexCacheOptimize : parameters.vertexCacheOptimize,
+            modelMatrix : parameters.modelMatrix
+        };
     };
 
     /**
      * @private
      */
     PrimitivePipeline.unpackCombineGeometryParameters = function(packedParameters) {
+        var instances = GeometryPacker.unpackInstancesForCombine(packedParameters.packedInstances);
+        var pickIds = GeometryPacker.unpackPickIds(packedParameters.packedPickIds);
 
+        var createGeometryResults = packedParameters.createGeometryResults;
+        var length = createGeometryResults.length;
+        var index = 0;
+        for (var i = 0; i < length; i++) {
+            var geometries = PrimitivePipeline.unpackCreateGeometryResults(createGeometryResults[i]);
+            var geometriesLength = geometries.length;
+            for (var x = 0; x < geometriesLength; x++) {
+                instances[index++].geometry = geometries[x];
+            }
+        }
+
+        var ellipsoid = Ellipsoid.clone(packedParameters.ellipsoid);
+        var projection = packedParameters.isGeographic ? new GeographicProjection(ellipsoid) : new WebMercatorProjection(ellipsoid);
+        var modelMatrix = Matrix4.clone(packedParameters.modelMatrix);
+
+        return {
+            instances : instances,
+            pickIds : pickIds,
+            ellipsoid : ellipsoid,
+            projection : projection,
+            elementIndexUintSupported : packedParameters.elementIndexUintSupported,
+            allow3DOnly : packedParameters.allow3DOnly,
+            allowPicking : packedParameters.allowPicking,
+            vertexCacheOptimize : packedParameters.vertexCacheOptimize,
+            modelMatrix : packedParameters.modelMatrix
+        };
     };
 
     /**
      * @private
      */
-    PrimitivePipeline.packCombineGeometryResults = function(parameters, transferableObjects) {
+    PrimitivePipeline.packCombineGeometryResults = function(results, transferableObjects) {
+        PrimitivePipeline.transferGeometries(results.geometries, transferableObjects);
+        PrimitivePipeline.transferPerInstanceAttributes(results.vaAttributes, transferableObjects);
 
+        results.packedVaAttributeLocations = GeometryPacker.packAttributeLocations(results.vaAttributeLocations);
+        if (FeatureDetection.supportsTransferringArrayBuffers()) {
+            transferableObjects.push(results.packedVaAttributeLocations.packedData.buffer);
+        }
+        delete results.vaAttributeLocations;
+        return results;
     };
 
     /**
      * @private
      */
-    PrimitivePipeline.unpackCombineGeometryResults = function(packedParameters) {
+    PrimitivePipeline.unpackCombineGeometryResults = function(packedResult) {
+        PrimitivePipeline.receiveGeometries(packedResult.geometries);
+        PrimitivePipeline.receivePerInstanceAttributes(packedResult.vaAttributes);
 
+        return {
+            geometries : packedResult.geometries,
+            attributeLocations : packedResult.attributeLocations,
+            vaAttributes : packedResult.vaAttributes,
+            perInstanceAttributeLocations : GeometryPacker.unpackAttributeLocations(packedResult.packedVaAttributeLocations, packedResult.vaAttributes),
+            modelMatrix : packedResult.modelMatrix
+        };
     };
 
     return PrimitivePipeline;
