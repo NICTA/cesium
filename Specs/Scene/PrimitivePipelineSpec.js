@@ -1,7 +1,6 @@
 /*global defineSuite*/
 defineSuite([
          'Scene/PrimitivePipeline',
-         'Core/GeometryPacker',
          'Core/BoxGeometry',
          'Core/VertexFormat',
          'Core/Cartesian3',
@@ -11,7 +10,6 @@ defineSuite([
          'Core/ColorGeometryInstanceAttribute'
      ], function(
          PrimitivePipeline,
-         GeometryPacker,
          BoxGeometry,
          VertexFormat,
          Cartesian3,
@@ -33,23 +31,6 @@ defineSuite([
         var packed = PrimitivePipeline.packCreateGeometryResults(original, transferableObjects);
         var unpacked = PrimitivePipeline.unpackCreateGeometryResults(packed);
         expect(transferableObjects[0]).toBe(packed.packedData.buffer);
-        expect(original).toEqual(unpacked);
-    });
-
-    it('can pack and unpack for combineGeometry', function() {
-        var original = [{
-            attributes : {
-                show : new ShowGeometryInstanceAttribute(true),
-                color : ColorGeometryInstanceAttribute.fromColor(Color.fromRandom({
-                    alpha : 0.5
-                }))
-            },
-            modelMatrix : Matrix4.IDENTITY
-        }];
-
-        var stringTable = [];
-        var packed = GeometryPacker.packInstancesForCombine(original, stringTable);
-        var unpacked = GeometryPacker.unpackInstancesForCombine(packed, stringTable);
         expect(original).toEqual(unpacked);
     });
 });

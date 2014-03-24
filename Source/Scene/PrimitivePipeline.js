@@ -13,7 +13,6 @@ define([
         '../Core/GeometryAttribute',
         '../Core/GeometryPipeline',
         '../Core/Matrix4',
-        '../Core/GeometryPacker',
         '../Core/WebMercatorProjection'
     ], function(
         BoundingSphere,
@@ -29,7 +28,6 @@ define([
         GeometryAttribute,
         GeometryPipeline,
         Matrix4,
-        GeometryPacker,
         WebMercatorProjection) {
     "use strict";
 
@@ -555,10 +553,10 @@ define([
         var length = items.length;
         for (var i = 0; i < length; i++) {
             var geometry = items[i];
+            var attributes = geometry.attributes;
 
             count += 4 + BoundingSphere.packedLength + geometry.indices.length;
 
-            var attributes = geometry.attributes;
             var attributesToWrite = [];
             for ( var property in attributes) {
                 if (attributes.hasOwnProperty(property) && defined(attributes[property])) {
@@ -696,6 +694,244 @@ define([
         return result;
     };
 
+    function packPickIds(pickIds) {
+        var length = pickIds.length;
+        var result = new Uint16Array(pickIds.length);
+        var q = 0;
+        for (var i = 0; i < length; ++i) {
+            result[i] = pickIds[i].toRgba();
+        }
+        return result;
+    }
+
+    function unpackPickIds(packedPickIds) {
+        var length = packedPickIds.length;
+        var result = new Array(length);
+        for (var i = 0; i < length; i++) {
+            result[i] = Color.fromRgba(packedPickIds[i]);
+        }
+        return result;
+    }
+
+    // This function was created by simplifying packInstancesForCombine into a count-only operation.
+    function countInstancesForCombine(instances) {
+        var length = instances.length;
+        var count = 1 + (length * 17);
+        for (var i = 0; i < length; i++) {
+            var attributes = instances[i].attributes;
+            for ( var property in attributes) {
+                if (attributes.hasOwnProperty(property) && defined(attributes[property])) {
+                    var attribute = attributes[property];
+                    count += 5 + attribute.value.length;
+                }
+            }
+        }
+        return count;
+    }
+
+    function packInstancesForCombine(instances, transferableObjects) {
+        var result = new Float64Array(countInstancesForCombine(instances));
+        var stringHash = {};
+        var stringTable = [];
+
+        var length = instances.length;
+        var count = 0;
+        result[count++] = length;
+        for (var i = 0; i < length; i++) {
+            var instance = instances[i];
+
+            var matrix = instance.modelMatrix;
+            for (var x = 0; x < 16; x++) {
+                result[count++] = matrix[x];
+            }
+
+            //attributes
+            var attributes = instance.attributes;
+            var attributesToWrite = [];
+            for ( var property in attributes) {
+                if (attributes.hasOwnProperty(property) && defined(attributes[property])) {
+                    attributesToWrite.push(property);
+                    if (!defined(stringHash[property])) {
+                        stringHash[property] = stringTable.length;
+                        stringTable.push(property);
+                    }
+                }
+            }
+
+            result[count++] = attributesToWrite.length;
+            for (var q = 0; q < attributesToWrite.length; q++) {
+                var name = attributesToWrite[q];
+                result[count++] = stringHash[name];
+                var attribute = attributes[name];
+                result[count++] = attribute.componentDatatype.value;
+                result[count++] = attribute.componentsPerAttribute;
+                result[count++] = attribute.normalize;
+                result[count++] = attribute.value.length;
+                result.set(attribute.value, count);
+                count += attribute.value.length;
+            }
+        }
+        transferableObjects.push(result.buffer);
+
+        return {
+            stringTable : stringTable,
+            packedData : result
+        };
+    }
+
+    function unpackInstancesForCombine(data) {
+        var packedInstances = data.packedData;
+        var stringTable = data.stringTable;
+        var result = new Array(packedInstances[0]);
+        var count = 0;
+
+        var i = 1;
+        while (i < packedInstances.length) {
+            var modelMatrix = new Matrix4();
+            for (var q = 0; q < 16; q++) {
+                modelMatrix[q] = packedInstances[i++];
+            }
+
+            //attributes
+            var attributes = {};
+            var numAttributes = packedInstances[i++];
+            for (var x = 0; x < numAttributes; x++) {
+                var name = stringTable[packedInstances[i++]];
+                var attribute = attributes[name] = {};
+                attribute.componentDatatype = ComponentDatatype.fromValue(packedInstances[i++]);
+                attribute.componentsPerAttribute = packedInstances[i++];
+                attribute.normalize = packedInstances[i++] !== 0;
+
+                var length = packedInstances[i++];
+                var values = ComponentDatatype.createTypedArray(attribute.componentDatatype, length);
+                for (var p = 0; p < length; p++) {
+                    values[p] = packedInstances[i++];
+                }
+                attribute.value = values;
+            }
+            result[count++] = {
+                attributes : attributes,
+                modelMatrix : modelMatrix
+            };
+        }
+
+        return result;
+    }
+
+    // This function was created by simplifying packAttributeLocations into a count-only operation.
+    function countAttributeLocations(attributeLocations) {
+        var length = attributeLocations.length;
+        var count = 1 + length;
+        for (var i = 0; i < length; i++) {
+            var instance = attributeLocations[i];
+            for ( var propertyName in instance) {
+                if (instance.hasOwnProperty(propertyName) && defined(instance[propertyName])) {
+                    var property = instance[propertyName];
+                    count += 4 + (property.indices.length * 3) + property.value.length;
+                }
+            }
+        }
+        return count;
+    }
+
+    function packAttributeLocations(attributeLocations) {
+        var stringTable = [];
+        var attributeTable = [];
+
+        var stringHash = {};
+        var result = new Float64Array(countAttributeLocations(attributeLocations));
+        var length = attributeLocations.length;
+        var count = 0;
+        result[count++] = length;
+        for (var i = 0; i < length; i++) {
+            var instance = attributeLocations[i];
+
+            var propertiesToWrites = [];
+            for ( var propertyName in instance) {
+                if (instance.hasOwnProperty(propertyName) && defined(instance[propertyName])) {
+                    propertiesToWrites.push(propertyName);
+                    if (!defined(stringHash[propertyName])) {
+                        stringHash[propertyName] = stringTable.length;
+                        stringTable.push(propertyName);
+                    }
+                }
+            }
+
+            result[count++] = propertiesToWrites.length;
+            for (var q = 0; q < propertiesToWrites.length; q++) {
+                var name = propertiesToWrites[q];
+                var property = instance[name];
+                result[count++] = stringHash[name];
+                result[count++] = property.dirty;
+
+                var indices = property.indices;
+                var indicesLength = indices.length;
+                result[count++] = indicesLength;
+                for (var x = 0; x < indicesLength; x++) {
+                    var index = indices[x];
+                    result[count++] = index.count;
+                    result[count++] = index.offset;
+                    var tableIndex = attributeTable.indexOf(index.attribute);
+                    if (tableIndex === -1) {
+                        tableIndex = attributeTable.length;
+                        attributeTable.push(index.attribute);
+                    }
+                    result[count++] = tableIndex;
+                }
+
+                result[count++] = property.value.length;
+                result.set(property.value, count);
+                count += property.value.length;
+            }
+        }
+
+        return {
+            stringTable : stringTable,
+            packedData : result,
+            attributeTable : attributeTable
+        };
+    }
+
+    function unpackAttributeLocations(packedData, vaAttributes) {
+        var stringTable = packedData.stringTable;
+        var attributeTable = packedData.attributeTable;
+        var packedAttributeLocations = packedData.packedData;
+
+        var result = new Array(packedAttributeLocations[0]);
+        var count = 0;
+
+        var attributTableIndex = 0;
+        var i = 1;
+        while (i < packedAttributeLocations.length) {
+            var instance = {};
+            var numAttributes = packedAttributeLocations[i++];
+            for (var x = 0; x < numAttributes; x++) {
+                var name = stringTable[packedAttributeLocations[i++]];
+                var property = instance[name] = {};
+                property.dirty = packedAttributeLocations[i++] !== 0;
+                var indices = new Array(packedAttributeLocations[i++]);
+                for (var f = 0; f < indices.length; f++) {
+                    var index = {};
+                    index.count = packedAttributeLocations[i++];
+                    index.offset = packedAttributeLocations[i++];
+                    index.attribute = attributeTable[packedAttributeLocations[i++]];
+                    indices[f] = index;
+                }
+                property.indices = indices;
+
+                var zlength = packedAttributeLocations[i++];
+                var values = ComponentDatatype.createTypedArray(indices[0].attribute.componentDatatype, zlength);
+                for (var p = 0; p < zlength; p++) {
+                    values[p] = packedAttributeLocations[i++];
+                }
+                property.value = values;
+            }
+            result[count++] = instance;
+        }
+
+        return result;
+    }
+
     /**
      * @private
      */
@@ -711,7 +947,7 @@ define([
 
         var packedPickIds;
         if (parameters.allowPicking) {
-            packedPickIds = GeometryPacker.packPickIds(parameters.pickIds);
+            packedPickIds = packPickIds(parameters.pickIds);
             if (FeatureDetection.supportsTransferringArrayBuffers()) {
                 transferableObjects.push(packedPickIds.buffer);
             }
@@ -719,7 +955,7 @@ define([
 
         return {
             createGeometryResults : parameters.createGeometryResults,
-            packedInstances : GeometryPacker.packInstancesForCombine(parameters.instances, transferableObjects),
+            packedInstances : packInstancesForCombine(parameters.instances, transferableObjects),
             packedPickIds : packedPickIds,
             ellipsoid : parameters.ellipsoid,
             isGeographic : parameters.isGeographic,
@@ -735,8 +971,8 @@ define([
      * @private
      */
     PrimitivePipeline.unpackCombineGeometryParameters = function(packedParameters) {
-        var instances = GeometryPacker.unpackInstancesForCombine(packedParameters.packedInstances);
-        var pickIds = GeometryPacker.unpackPickIds(packedParameters.packedPickIds);
+        var instances = unpackInstancesForCombine(packedParameters.packedInstances);
+        var pickIds = unpackPickIds(packedParameters.packedPickIds);
 
         var createGeometryResults = packedParameters.createGeometryResults;
         var length = createGeometryResults.length;
@@ -773,7 +1009,7 @@ define([
         PrimitivePipeline.transferGeometries(results.geometries, transferableObjects);
         PrimitivePipeline.transferPerInstanceAttributes(results.vaAttributes, transferableObjects);
 
-        results.packedVaAttributeLocations = GeometryPacker.packAttributeLocations(results.vaAttributeLocations);
+        results.packedVaAttributeLocations = packAttributeLocations(results.vaAttributeLocations);
         if (FeatureDetection.supportsTransferringArrayBuffers()) {
             transferableObjects.push(results.packedVaAttributeLocations.packedData.buffer);
         }
@@ -792,7 +1028,7 @@ define([
             geometries : packedResult.geometries,
             attributeLocations : packedResult.attributeLocations,
             vaAttributes : packedResult.vaAttributes,
-            perInstanceAttributeLocations : GeometryPacker.unpackAttributeLocations(packedResult.packedVaAttributeLocations, packedResult.vaAttributes),
+            perInstanceAttributeLocations : unpackAttributeLocations(packedResult.packedVaAttributeLocations, packedResult.vaAttributes),
             modelMatrix : packedResult.modelMatrix
         };
     };
