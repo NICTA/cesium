@@ -631,7 +631,7 @@ define([
                         instances : instances,
                         pickIds : allowPicking ? createPickIds(context, this, instances) : undefined,
                         ellipsoid : projection.ellipsoid,
-                        isGeographic : projection instanceof GeographicProjection,
+                        projection : projection,
                         elementIndexUintSupported : context.getElementIndexUint(),
                         allow3DOnly : this.allow3DOnly,
                         allowPicking : allowPicking,
