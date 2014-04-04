@@ -19,12 +19,53 @@ define([
         Uri) {
     "use strict";
 
-    function completeTask(processor, event) {
+    var canTransferArrayBufferResult;
+
+    function canTransferArrayBuffer() {
+        if (!defined(canTransferArrayBufferResult)) {
+            var worker = new Worker(getWorkerUrl('Workers/transferTypedArrayTest.js'));
+            worker.postMessage = defaultValue(worker.webkitPostMessage, worker.postMessage);
+
+            var value = 100;
+            var array = new Int8Array([value]);
+
+            try {
+                // postMessage might fail with a DataCloneError
+                // if transferring array buffers is not supported.
+                worker.postMessage({
+                    array : array
+                }, [array.buffer]);
+            } catch (e) {
+                canTransferArrayBufferResult = false;
+                return false;
+            }
+
+            var deferred = when.defer();
+
+            worker.onmessage = function(event) {
+                var array = event.data.array;
+
+                // some versions of Firefox silently fail to transfer typed arrays.
+                // https://bugzilla.mozilla.org/show_bug.cgi?id=841904
+                // Check to make sure the value round-trips successfully.
+                var result = defined(array) && array[0] === value;
+                deferred.resolve(result);
+
+                worker.terminate();
+
+                canTransferArrayBufferResult = result;
+            };
+
+            canTransferArrayBufferResult = deferred;
+        }
+
+        return canTransferArrayBufferResult;
+    }
+
+    function completeTask(processor, data) {
         --processor._activeTasks;
 
-        var data = event.data;
         var id = data.id;
-
         if (!defined(id)) {
             // This is not one of ours.
             return;
@@ -42,17 +83,12 @@ define([
         delete deferreds[id];
     }
 
-    var _bootstrapperUrl;
-    function getBootstrapperUrl() {
-        if (defined(_bootstrapperUrl)) {
-            return _bootstrapperUrl;
-        }
+    function getWorkerUrl(moduleID) {
+        var url = buildModuleUrl(moduleID);
 
-        _bootstrapperUrl = buildModuleUrl('Workers/cesiumWorkerBootstrapper.js');
-
-        if (isCrossOriginUrl(_bootstrapperUrl)) {
+        if (isCrossOriginUrl(url)) {
             //to load cross-origin, create a shim worker from a blob URL
-            var script = 'importScripts("' + _bootstrapperUrl + '");';
+            var script = 'importScripts("' + url + '");';
 
             var blob;
             try {
@@ -67,21 +103,28 @@ define([
             }
 
             var URL = window.URL || window.webkitURL;
-            _bootstrapperUrl = URL.createObjectURL(blob);
+            url = URL.createObjectURL(blob);
         }
 
-        return _bootstrapperUrl;
+        return url;
     }
 
-    function createWorker(processor) {
-        var bootstrapperUrl = getBootstrapperUrl();
-        var worker = new Worker(bootstrapperUrl);
+    var bootstrapperUrlResult;
+    function getBootstrapperUrl() {
+        if (!defined(bootstrapperUrlResult)) {
+            bootstrapperUrlResult = getWorkerUrl('Workers/cesiumWorkerBootstrapper.js');
+        }
+        return bootstrapperUrlResult;
+    }
+
+    function createWorker(processor, canTransferArrayBuffer) {
+        var worker = new Worker(getBootstrapperUrl());
         worker.postMessage = defaultValue(worker.webkitPostMessage, worker.postMessage);
 
-        //bootstrap
         var bootstrapMessage = {
             loaderConfig : {},
-            workerModule : TaskProcessor._workerModulePrefix + processor._workerName
+            workerModule : TaskProcessor._workerModulePrefix + processor._workerName,
+            canTransferArrayBuffer : canTransferArrayBuffer
         };
 
         if (defined(TaskProcessor._loaderConfig)) {
@@ -98,7 +141,7 @@ define([
         worker.postMessage(bootstrapMessage);
 
         worker.onmessage = function(event) {
-            completeTask(processor, event);
+            completeTask(processor, event.data);
         };
 
         processor._worker = worker;
@@ -156,30 +199,33 @@ define([
      * }
      */
     TaskProcessor.prototype.scheduleTask = function(parameters, transferableObjects) {
-        if (!defined(this._worker)) {
-            createWorker(this);
-        }
+        var processor = this;
+        return when(canTransferArrayBuffer(), function(canTransferArrayBuffer) {
+            if (!defined(processor._worker)) {
+                createWorker(processor, canTransferArrayBuffer);
+            }
 
-        if (this._activeTasks >= this._maximumActiveTasks) {
-            return undefined;
-        }
+            if (processor._activeTasks >= processor._maximumActiveTasks) {
+                return undefined;
+            }
 
-        ++this._activeTasks;
+            ++processor._activeTasks;
 
-        if (!defined(transferableObjects)) {
-            transferableObjects = emptyTransferableObjectArray;
-        }
+            if (!defined(transferableObjects)) {
+                transferableObjects = emptyTransferableObjectArray;
+            }
 
-        var id = this._nextID++;
-        var deferred = when.defer();
-        this._deferreds[id] = deferred;
+            var id = this._nextID++;
+            var deferred = when.defer();
+            this._deferreds[id] = deferred;
 
-        this._worker.postMessage({
-            id : id,
-            parameters : parameters
-        }, transferableObjects);
+            this._worker.postMessage({
+                id : id,
+                parameters : parameters
+            }, transferableObjects);
 
-        return deferred.promise;
+            return deferred.promise;
+        });
     };
 
     /**
